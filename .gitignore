@@ -1,3 +1,5 @@
+build-CPPSim-Desktop-Debug/
+
 ## Simulator specific ignores
 
 config/LastScenario.txt
