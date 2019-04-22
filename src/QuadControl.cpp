@@ -70,16 +70,16 @@ VehicleCommand QuadControl::GenerateMotorCommands(float collThrustCmd, V3F momen
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-    float l = L / sqrtf(2.f);
+  float l = L / sqrtf(2.f);
 
-    float Fx = momentCmd.x / l;
-    float Fy = momentCmd.y / l;
-    float Fz = - momentCmd.z / kappa;
+  float Fx = momentCmd.x / l;
+  float Fy = momentCmd.y / l;
+  float Fz = - momentCmd.z / kappa;
 
-    cmd.desiredThrustsN[0] = (Fx + Fy + Fz + collThrustCmd)/4.f;
-    cmd.desiredThrustsN[1] = (-Fx + Fy - Fz + collThrustCmd)/4.f;
-    cmd.desiredThrustsN[2] = (Fx - Fy - Fz + collThrustCmd)/4.f ;
-    cmd.desiredThrustsN[3] = (-Fx - Fy + Fz + collThrustCmd)/4.f;
+  cmd.desiredThrustsN[0] = (Fx + Fy + Fz + collThrustCmd)/4.f;
+  cmd.desiredThrustsN[1] = (-Fx + Fy - Fz + collThrustCmd)/4.f;
+  cmd.desiredThrustsN[2] = (Fx - Fy - Fz + collThrustCmd)/4.f ;
+  cmd.desiredThrustsN[3] = (-Fx - Fy + Fz + collThrustCmd)/4.f;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
@@ -105,6 +105,7 @@ V3F QuadControl::BodyRateControl(V3F pqrCmd, V3F pqr)
   V3F momentCmd;
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
+
   V3F momentOfInertia;
 
   momentOfInertia.x = Ixx;
@@ -112,7 +113,6 @@ V3F QuadControl::BodyRateControl(V3F pqrCmd, V3F pqr)
   momentOfInertia.z = Izz;
 
   V3F rateError = pqrCmd - pqr;
-
   momentCmd = momentOfInertia * kpPQR * rateError;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
@@ -284,11 +284,13 @@ float QuadControl::YawControl(float yawCmd, float yaw)
   float constrYawCmd = CONSTRAIN(yawCmd, -2 * F_PI, 2 * F_PI);
 
   float yawError = constrYawCmd - yaw;
+
   if ( yawError > F_PI ) {
     yawError = yawError - 2 * F_PI;
   } if ( yawError < -F_PI ) {
     yawError = yawError + 2 * F_PI;
   }
+
   yawRateCmd = kpYaw * yawError;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
