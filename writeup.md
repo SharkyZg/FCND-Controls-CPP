@@ -83,6 +83,18 @@ Input values of the altitude controller are target altitude position and velocit
 
 #### 4. Implementation of lateral position control in C++
 
+Input values for the lateral position control function are desired position, desired velocity, current position, current velocity and feed-forward acceleration. All of the input values are in the NED(north-east-down) coordinate system.
+
+Output of the function are desired horizontal accelerations that serve as an input for the already described `RollPitchControl` function.
+
+To calculate desired horizontal accelerations gain parameters are first converted into V3F format for the position and velocity gains.
+
+After that velocity is caped to the maximal allowed XY velocity defined as a parameter in `QuadControlParams.txt`.
+
+To calculate acceleration increment current position is subtracted from commanded position and the result is multiplied by the `kpPosition` gain. Same step has been repeated for the velocity as well and the result of the position and velocity increments have been added to feed forward acceleration.
+
+The resulted acceleration has been caped to the maximal allowed acceleration defined as a parameter in `QuadControlParams.txt`.
+
 ```cpp
   V3F kpPosition;
   kpPosition.x = kpPosXY;
@@ -107,6 +119,12 @@ Input values of the altitude controller are target altitude position and velocit
 
 #### 5. Implementation of yaw control in C++
 
+Implementing the yaw control follows the same pattern as for the other controllers. First there is constrained how much commanded yaw can be(it doesn't make sense to turn the drone more then 360 degrees). Then the current yaw angle is subtracted from the commanded yaw angle.  
+
+In case that the yaw error is more than one `pi` the yaw error is modified to rotate the drone to the other side by subtracting or adding value of 2 `pi`. This makes the drone more time and energy efficient to achieve specific position.
+
+At the end the yaw command rate is calculated by multiplying yaw gain parameter with the yaw error rate.
+
 ```cpp
   float constrYawCmd = CONSTRAIN(yawCmd, -2 * F_PI, 2 * F_PI);
 
@@ -122,6 +140,9 @@ Input values of the altitude controller are target altitude position and velocit
 ```
 
 #### 5. Implementation of calculating the motor commands given commanded thrust and moments in C++
+
+To generate commanded thrust for each propeller it is necessary first to convert commanded moments around specific axis to forces. That is achieved by dividing commanded moment with the distance to the center of the drone.
+
 ```cpp
     float l = L / sqrtf(2.f);
 
