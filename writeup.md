@@ -13,11 +13,11 @@ This writeup contains the description of implementation of the Control of a 3D Q
 
 #### 1. Implementation of body rate control in C++
 
-The body rate controller receives desired body rates and current body rates as input. The result of subtracting current body rates from desired body rates is rates error that serves as input in calculating desired 3-axis moment. 
+The body rate controller receives commanded body rates and current body rates as input. The result of subtracting current body rates from commanded body rates is rate error that serves as input in calculating commanded 3-axis moment. 
 
-Other two inputs for calculating desired 3-axis moment are gain parameter and moments of inertia. Both of those inputs are predefined in `QuadControlParams.txt` file as parameters.
+Other two inputs for calculating commanded 3-axis moment are gain parameter and moments of inertia. Both of those inputs are configured in `QuadControlParams.txt` file as parameters.
 
-The desired 3-axis moment is calculated by multiplying moments of inertia, gain parameter and body rates error. 
+The commanded 3-axis moment is calculated by multiplying moments of inertia, gain parameter and body rates error. 
 
 ```cpp
   V3F momentOfInertia;
@@ -33,11 +33,12 @@ The desired 3-axis moment is calculated by multiplying moments of inertia, gain 
 
 #### 2. Implementation of roll pitch controller in C++
 
-In the case that the collective trust of the controller is zero, the controller returns roll and pitch rates 0. The reason for this is that there is no change in roll and pitch accelerations possible without thrust. Yaw rate is zero because yaw is controlled by another controller separately.
+In the case that the collective trust of the controller is zero, the roll pitch controller returns roll and pitch rates 0. The reason for this is that there is no change in roll and pitch accelerations possible without thrust. Yaw rate is returned as zero because yaw is controlled by another controller separately.
 
-The first value `cd`(acceleration) is calculated by dividing negative collective thrust in Newtons with the mass of the drone. This value is used to calculate `targetR13` and `targetR23` values based on the desired x and y lateral accelerations. `targetR13` and `targetR23` values are used to calculate `R13Err` and `R23Err` error rates between target and current values from the attitude rotation matrix. 
+The first value `cd`(acceleration) is calculated by dividing negative collective thrust in Newtons with the mass of the drone. This value is used to calculate `targetR13` and `targetR23` target rotation matrix values based on the desired x and y lateral accelerations. `targetR13` and `targetR23` values are then used to calculate `R13Err` and `R23Err` error rates between the target and the current values from the attitude rotation matrix. 
 
-Roll and pitch rates are then calculated by using `R13Err` and `R23Err` error rates, values from the attitude rotation matrix and `kpBank` roll/pitch gain with help of the following formula:
+Commanded roll and pitch rates are then calculated by using  `R13Err`, `R23Err` error rates and `kpBank` roll/pitch gain with the help of following formula:
+
 ![Quad Image](./misc/screenshot_2.png)
 
 Source: Udacity lectures
@@ -66,7 +67,9 @@ Source: Udacity lectures
 
 #### 3. Implementation of altitude controller in C++
 
-Input values of the altitude controller are target altitude position and velocity as well as current altitude position and velocity. In addition to those inputs there are the the time step of the measurements as well as the feed-forward vertical acceleration. 
+Input values of the altitude controller are the target altitude position and velocity as well as the current altitude position and velocity. Additional inputs are the time step of measurements as well as the feed-forward vertical acceleration. 
+
+The controller is implemented as PDI controller(second order system) that takes the difference between the commanded and current altitude position. The output of the controller is thrust that is necessary to bring the drone to the desired altitude.
 
 ```cpp
   float P = kpPosZ * (posZCmd - posZ);
@@ -83,17 +86,17 @@ Input values of the altitude controller are target altitude position and velocit
 
 #### 4. Implementation of lateral position control in C++
 
-Input values for the lateral position control function are desired position, desired velocity, current position, current velocity and feed-forward acceleration. All of the input values are in the NED(north-east-down) coordinate system.
+Input values for the lateral position controller are desired position, desired velocity, current position, current velocity and feed-forward acceleration. All of the input values are in the NED(north-east-down) coordinate system.
 
-Output of the function are desired horizontal accelerations that serve as an input for the already described `RollPitchControl` function.
+Output of the function are the commanded horizontal accelerations that serve as an input for the already described roll pitch controller.
 
-To calculate desired horizontal accelerations gain parameters are first converted into V3F format for the position and velocity gains.
+To calculate the commanded horizontal accelerations, the position and the velocity gains gain parameters are first filled into V3F vector, to enable multiplication with the error rates in the same format.
 
-After that velocity is caped to the maximal allowed XY velocity defined as a parameter in `QuadControlParams.txt`.
+As the next step, commanded velocity is limited to the maximal allowed XY velocity defined in the `QuadControlParams.txt` file as parameter.
 
-To calculate acceleration increment current position is subtracted from commanded position and the result is multiplied by the `kpPosition` gain. Same step has been repeated for the velocity as well and the result of the position and velocity increments have been added to feed forward acceleration.
+To calculate acceleration increment the current position is subtracted from the commanded position and the result is multiplied by the `kpPosition` gain. Same step has been repeated for the velocity as well(with the `kpVelocity` gain) and the result of the position and the velocity increments have been added to the feed forward acceleration received as input.
 
-The resulted acceleration has been caped to the maximal allowed acceleration defined as a parameter in `QuadControlParams.txt`.
+The resulting commanded acceleration has been limited to the maximal allowed acceleration defined as parameter in the `QuadControlParams.txt` file.
 
 ```cpp
   V3F kpPosition;
@@ -119,11 +122,11 @@ The resulted acceleration has been caped to the maximal allowed acceleration def
 
 #### 5. Implementation of yaw control in C++
 
-Implementing the yaw control follows the same pattern as for the other controllers. First there is constrained how much commanded yaw can be(it doesn't make sense to turn the drone more then 360 degrees). Then the current yaw angle is subtracted from the commanded yaw angle.  
+Implementing the yaw controller follows the same pattern as for the other previously described controllers. First it is constrained how high commanded yaw can be(it doesn't make sense to turn the drone more then 360 degrees). Then the current yaw angle is subtracted from the commanded yaw angle.  
 
-In case that the yaw error is more than one `pi` the yaw error is modified to rotate the drone to the other side by subtracting or adding value of 2 `pi`. This makes the drone more time and energy efficient to achieve specific position.
+In case that the yaw error is higher than one `pi`(3.14...) the yaw error is modified to rotate the drone to the other side by subtracting or adding value of 2 `pi`. This makes the drone more time and energy efficient to achieve the specific yaw position.
 
-At the end the yaw command rate is calculated by multiplying yaw gain parameter with the yaw error rate.
+Lastly the yaw command rate is calculated by multiplying the yaw gain parameter(`kpYaw`) with the yaw error rate.
 
 ```cpp
   float constrYawCmd = CONSTRAIN(yawCmd, -2 * F_PI, 2 * F_PI);
@@ -139,9 +142,13 @@ At the end the yaw command rate is calculated by multiplying yaw gain parameter 
   yawRateCmd = kpYaw * yawError;
 ```
 
-#### 5. Implementation of calculating the motor commands given commanded thrust and moments in C++
+#### 6. Calculating the motor commands given commanded thrust and moments in C++
 
-To generate commanded thrust for each propeller it is necessary first to convert commanded moments around specific axis to forces. That is achieved by dividing commanded moment with the distance to the center of the drone.
+To generate the commanded thrust for each propeller it is necessary first to convert commanded moments around specific axis into forces. That is achieved by dividing commanded moment with the propeller distance to the center of mass of the drone.
+
+Once Fx, Fy and Fz values have been calculated it is possible to derive the trusts of the specific propellers by adding or subtracting force based on the propellers position.
+
+In addition to the forces needed for the rotation, the collective thrust is added to the commanded thrust to keep the drone on the desired altitude. Collective trust is of course input from the altitude controller.
 
 ```cpp
     float l = L / sqrtf(2.f);
